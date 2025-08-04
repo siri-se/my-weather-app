@@ -10,8 +10,9 @@ searchForm.addEventListener("submit", (event) => {
   const cityName = cityInput.value.trim();
 
   if (cityName) {
-    localStorage.setItem('lastCity', cityName);
+    localStorage.setItem("lastCity", cityName);
     getWeather(cityName);
+    getForecast(cityName);
   } else {
     alert("กรุณากรอกชื่อเมือง");
   }
@@ -33,6 +34,58 @@ async function getWeather(city) {
   }
 }
 
+async function getForecast(city) {
+  const forecastContainer = document.querySelector("#forecast-container");
+  forecastContainer.innerHTML = `<p>Loading ...</p>`;
+
+  const apiUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric&lang=th`;
+
+  try {
+    const response = await fetch(apiUrl);
+    if (!response.ok) throw new Error("!Not found!");
+    const data = await response.json();
+
+    const dailyData = {};
+    data.list.forEach((item) => {
+      const date = item.dt_txt.split(" ")[0];
+      const time = item.dt_txt.split(" ")[1];
+      if (!dailyData[date]) dailyData[date] = [];
+      dailyData[date].push(item);
+    });
+
+    const forecastHtml = Object.keys(dailyData)
+      .slice(0, 5)
+      .map((date) => {
+        const dayItems = dailyData[date];
+        let noonItem = dayItems.find((i) => i.dt_txt.includes("12:00:00"));
+        if (!noonItem) noonItem = dayItems[Math.floor(dayItems.length / 2)];
+
+        const { temp } = noonItem.main;
+        const { description, icon } = noonItem.weather[0];
+
+        const dayName = new Date(date).toLocaleDateString("th-TH", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
+
+        return `
+        <div class="forecast-day">
+          <h3>${dayName}</h3>
+          <img src="https://openweathermap.org/img/wn/${icon}@2x.png" alt="${description}">
+          <p>${temp.toFixed(1)}°C</p>
+          <p>${description}</p>
+        </div>
+      `;
+      })
+      .join("");
+
+    forecastContainer.innerHTML = forecastHtml;
+  } catch (error) {
+    forecastContainer.innerHTML = `<p class="error">${error.message}</p>`;
+  }
+}
+
 function displayWeather(data) {
   const { name, main, weather } = data;
   const { temp, humidity } = main;
@@ -46,8 +99,8 @@ function displayWeather(data) {
         <p>ความชื้น: ${humidity}%</p>
     `;
   weatherInfoContainer.innerHTML = weatherHtml;
-  weatherInfoContainer.classList.remove("fade-in"); 
-  void weatherInfoContainer.offsetWidth; 
+  weatherInfoContainer.classList.remove("fade-in");
+  void weatherInfoContainer.offsetWidth;
   weatherInfoContainer.classList.add("fade-in");
   setBackgroundByWeather(mainWeather);
 }
@@ -77,10 +130,11 @@ function setBackgroundByWeather(mainWeather) {
   body.style.backgroundColor = color;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const lastCity = localStorage.getItem('lastCity');
+document.addEventListener("DOMContentLoaded", () => {
+  const lastCity = localStorage.getItem("lastCity");
   if (lastCity) {
     cityInput.value = lastCity;
     getWeather(lastCity);
+    getForecast(lastCity);
   }
 });
